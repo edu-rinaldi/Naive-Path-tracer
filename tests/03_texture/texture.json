@@ -1,0 +1,137 @@
+{
+  "asset": {
+    "copyright": "Model by Fabio Pellacini from github.com/~xelatihy/yocto-gl",
+    "version": "4.2"
+  },
+  "cameras": [
+    {
+      "name": "default",
+      "lens": 0.05,
+      "aperture": 0.0,
+      "aspect": 2.4,
+      "frame": [
+        0.8151804208755493, -0.0, 0.579207181930542, 0.16660168766975403,
+        0.9577393531799316, -0.23447643220424652, -0.5547295212745667,
+        0.28763750195503235, 0.7807304263114929, -0.75, 0.4000000059604645,
+        0.8999999761581421
+      ]
+    }
+  ],
+  "environments": [
+    {
+      "name": "sky",
+      "emission": [0.5, 0.5, 0.5]
+    }
+  ],
+  "textures": [
+    {
+      "name": "floor",
+      "uri": "textures/floor.png"
+    },
+    {
+      "name": "uvgrid",
+      "uri": "textures/uvgrid.png"
+    }
+  ],
+  "materials": [
+    {
+      "name": "floor",
+      "color": [1, 1, 1],
+      "color_tex": 0,
+      "type": "matte"
+    },
+    {
+      "name": "sphere",
+      "color": [1, 1, 1],
+      "color_tex": 1,
+      "type": "matte"
+    },
+    {
+      "name": "teapot",
+      "color": [1, 1, 1],
+      "color_tex": 1,
+      "type": "matte"
+    },
+    {
+      "name": "bunny",
+      "color": [1, 1, 1],
+      "color_tex": 1,
+      "type": "matte"
+    },
+    {
+      "name": "uvcylinder",
+      "color": [1, 1, 1],
+      "color_tex": 1,
+      "type": "matte"
+    },
+    {
+      "name": "cube",
+      "color": [1, 1, 1],
+      "color_tex": 1,
+      "type": "matte"
+    }
+  ],
+  "shapes": [
+    {
+      "name": "floor",
+      "uri": "shapes/floor.ply"
+    },
+    {
+      "name": "sphere",
+      "uri": "shapes/sphere.ply"
+    },
+    {
+      "name": "teapot",
+      "uri": "shapes/teapot.ply"
+    },
+    {
+      "name": "bunny",
+      "uri": "shapes/bunny.ply"
+    },
+    {
+      "name": "uvcylinder",
+      "uri": "shapes/uvcylinder.ply"
+    },
+    {
+      "name": "cube",
+      "uri": "shapes/cube.ply"
+    }
+  ],
+  "instances": [
+    {
+      "name": "floor",
+      "shape": 0,
+      "material": 0
+    },
+    {
+      "name": "sphere",
+      "shape": 1,
+      "frame": [1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 0, 0],
+      "material": 1
+    },
+    {
+      "name": "teapot",
+      "shape": 2,
+      "frame": [1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4, 0, 0],
+      "material": 2
+    },
+    {
+      "name": "bunny",
+      "shape": 3,
+      "frame": [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+      "material": 3
+    },
+    {
+      "name": "uvcylinder",
+      "shape": 4,
+      "frame": [1, 0, 0, 0, 1, 0, 0, 0, 1, 0.2, 0, 0],
+      "material": 4
+    },
+    {
+      "name": "cube",
+      "shape": 5,
+      "frame": [1, 0, 0, 0, 1, 0, 0, 0, 1, -0.2, 0, 0],
+      "material": 5
+    }
+  ]
+}
