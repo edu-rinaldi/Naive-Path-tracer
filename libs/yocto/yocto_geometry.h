@@ -58,6 +58,15 @@ namespace yocto
 // -----------------------------------------------------------------------------
 namespace yocto
 {
+  struct hit_record
+  {
+    bool hit = false;
+    int element;
+    float distance;
+    vec3f position;
+    vec3f normal;
+    vec2f uv;
+  };
 
   // Axis aligned bounding box represented as a min/max vector pairs.
   struct bbox2f
@@ -970,76 +979,79 @@ namespace yocto
     t1 *= 1.00000024f; // for double: 1.0000000000000004
     return t0 <= t1;
   }
-
-  inline bool intersect_rounded_cone(const ray3f &ray,
-                                     const vec3f &pa, const vec3f &pb,
-                                     float ra, float rb,
-                                     vec2f &uv, float &dist,
-                                     float &out_t, vec3f &out_normal)
+  vec4f _intersect_rounded_cone(const ray3f &ray, const vec3f &pa, const vec3f &pb, float ra, float rb)
   {
-    vec3f ba = pb - pa;    // Bottom to top vec
-    vec3f oa = ray.o - pa; // Bottom to cam origin
-    vec3f ob = ray.o - pb; // Top to cam origin
-
-    float rr = ra - rb; // Radius difference
-
-    float m0 = dot(ba, ba);    // Len(ba)
-    float m1 = dot(oa, ba);    // Cos(phi) between oa -- ba
-    float m2 = dot(ba, ray.d); // Cos(phi) between the ray direction and ba
-
+    vec3f ba = pb - pa;
+    vec3f oa = ray.o - pa;
+    vec3f ob = ray.o - pb;
+    float rr = ra - rb;
+    float m0 = dot(ba, ba);
+    float m1 = dot(ba, oa);
+    float m2 = dot(ba, ray.d);
     float m3 = dot(ray.d, oa);
     float m5 = dot(oa, oa);
     float m6 = dot(ob, ray.d);
     float m7 = dot(ob, ob);
 
-    // body intersection
+    // body
     float d2 = m0 - rr * rr;
     float k2 = d2 - m2 * m2;
     float k1 = d2 * m3 - m1 * m2 + m2 * rr * ra;
     float k0 = d2 * m5 - m1 * m1 + m1 * rr * ra * 2.0 - m0 * ra * ra;
+
     float h = k1 * k1 - k0 * k2;
     if (h < 0.0)
-      return false;
+      return vec4f{-1.0, -1.0, -1.0, -1.0};
     float t = (-sqrt(h) - k1) / k2;
-    if (t < 0.0)
-      return false;
+
+    // if (t < 0.0)
+    // return vec4f{-1.0, -1.0, -1.0, -1.0};
+
     float y = m1 - ra * rr + t * m2;
     if (y > 0.0 && y < d2)
     {
-      // t
       vec3f normal = normalize(d2 * (oa + t * ray.d) - ba * y);
-      out_normal = normal;
-      out_t = t;
-      return true;
+      return vec4f{t, normal.x, normal.y, normal.z};
     }
 
-    // caps intersection
+    // caps
     float h1 = m3 * m3 - m5 + ra * ra;
     float h2 = m6 * m6 - m7 + rb * rb;
-
     if (max(h1, h2) < 0.0)
-      return false;
+      return vec4f{-1.0, -1.0, -1.0, -1.0};
 
-    float ret_t = 1e20;
-    vec3f ret_normal = vec3f{1e20, 1e20, 1e20};
+    vec4f r = vec4f{1e20, 1e20, 1e20, 1e20};
     if (h1 > 0.0)
     {
       t = -m3 - sqrt(h1);
-      out_t = t;
-      out_t = (oa + t * ray.d) / ra;
+      vec3f normal = normalize((oa + t * ray.d) / ra);
+      r = {t, normal.x, normal.y, normal.z};
     }
     if (h2 > 0.0)
     {
       t = -m6 - sqrt(h2);
-      if (t < ret_t)
+      if (t < r.x)
       {
-        out_normal = (ob + t * ray.d) / rb;
-        out_t = t;
+        vec3f normal = normalize((ob + t * ray.d) / rb);
+        r = vec4f{t, normal.x, normal.y, normal.z};
       }
     }
+    return r;
+  }
 
-    // Do whatever with ret_t and ret_normal
-    return false;
+  inline bool intersect_rounded_cone(const ray3f &ray,
+                                     const vec3f &pa, const vec3f &pb,
+                                     float ra, float rb,
+                                     hit_record &rec)
+  {
+    vec4f isec_vals = _intersect_rounded_cone(ray, pa, pb, ra, rb);
+    if (isec_vals.x == isec_vals.y && isec_vals.z == isec_vals.w && isec_vals.y == isec_vals.z && isec_vals.x == -1.0)
+      return false;
+    float t = isec_vals.x;
+    rec.normal = normalize(vec3f{isec_vals.y, isec_vals.z, isec_vals.w});
+    rec.position = ray_point(ray, t);
+
+    return true;
   }
 
 } // namespace yocto

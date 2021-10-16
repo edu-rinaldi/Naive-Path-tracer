@@ -343,8 +343,7 @@ namespace yocto
                      ray3f ray = eval_camera(sceneCamera, uv);
                      auto color = shaderFunc(
                          scene, bvh, ray, 0, state.rngs[idx], params);
-                     state.image[idx] += color;
-                   });
+                     state.image[idx] += color; });
     }
     state.samples += 1;
   }
