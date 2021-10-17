@@ -12,3 +12,4 @@ tests1/
 .vs
 testsr/
 scripts/sync_yocto.sh
+*/.DS_Store
