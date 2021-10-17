@@ -58,15 +58,6 @@ namespace yocto
 // -----------------------------------------------------------------------------
 namespace yocto
 {
-  struct hit_record
-  {
-    bool hit = false;
-    int element;
-    float distance;
-    vec3f position;
-    vec3f normal;
-    vec2f uv;
-  };
 
   // Axis aligned bounding box represented as a min/max vector pairs.
   struct bbox2f
@@ -317,7 +308,12 @@ namespace yocto
   inline bool intersect_bbox(
       const ray3f &ray, const vec3f &ray_dinv, const bbox3f &bbox);
 
-  inline bool intersect_capped_cone(const ray3f &ray, const vec3f &pa, const vec3f &pb, float ra, float rb, vec2f &uv, float &dist);
+  inline vec4f _intersect_rounded_cone(const ray3f& ray, const vec3f& pa, const vec3f& pb, float ra, float rb);
+  
+  inline bool intersect_rounded_cone(const ray3f& ray,
+      const vec3f& pa, const vec3f& pb,
+      float ra, float rb,
+      vec2f& uv, float& dist, vec3f& position, vec3f& normal);
 
 } // namespace yocto
 
@@ -841,45 +837,86 @@ namespace yocto
   }
 
   // Intersect a ray with a sphere
-  inline bool intersect_sphere(
-      const ray3f &ray, const vec3f &p, float r, vec2f &uv, float &dist)
+  inline bool intersect_sphere(const ray3f& ray, const vec3f& p, float r, vec2f& uv, float& dist, vec3f& position, vec3f& normal)
   {
-    // compute parameters
-    auto a = dot(ray.d, ray.d);
-    auto b = 2 * dot(ray.o - p, ray.d);
-    auto c = dot(ray.o - p, ray.o - p) - r * r;
+    // If discriminant > 0 (there're 2 root) ==> hit at (-b -
+    // sqrt(discriminant)) / 2a Use this formula: t^2 * dot(b,b)     +   t * 2 *
+    // dot(b,(A−C))    +   dot((A−C),(A−C)) − r^2=0 Where:
+    //  - A = ray origin
+    //  - b = ray direction
+    //  - C = sphere center
+    //  - r = sphere ray
+    //vec3f oc = ray.o - p;
+    //float a     = dot(ray.d, ray.d);
+    //float halfB = dot(ray.d, oc);
+    //float c     = dot(oc, oc) - pow(r, 2);
 
-    // check discriminant
-    auto dis = b * b - 4 * a * c;
-    if (dis < 0)
-      return false;
+    //// Dicriminant > 0 ?
+    //float discriminant = pow(halfB, 2) - (a * c);
 
-    // compute ray parameter
-    auto t = (-b - sqrt(dis)) / (2 * a);
+    //if (discriminant < 0) return false;
 
-    // exit if not within bounds
-    if (t < ray.tmin || t > ray.tmax)
-      return false;
+    //float root = (-halfB - sqrt(discriminant)) / a;
+    //if (root < ray.tmin || root > ray.tmax) {
+    //  root = (-halfB + sqrt(discriminant)) / a;
+    //  if (root < ray.tmin || root > ray.tmax) return false;
+    //}
 
-    // try other ray parameter
-    t = (-b + sqrt(dis)) / (2 * a);
-
-    // exit if not within bounds
-    if (t < ray.tmin || t > ray.tmax)
-      return false;
-
-    // compute local point for uvs
-    auto plocal = ((ray.o + ray.d * t) - p) / r;
-    auto u = atan2(plocal.y, plocal.x) / (2 * pif);
-    if (u < 0)
-      u += 1;
-    auto v = acos(clamp(plocal.z, -1.0f, 1.0f)) / pif;
-
-    // intersection occurred: set params and exit
-    uv = {u, v};
-    dist = t;
+    //dist     = root;
+    //position = ray_point(ray, dist);
+    //normal   = normalize((position - p) / r);
+    //uv       = vec2f{atan2(position.z, position.x), acos(position.y / r)};
+    //return true;
+    vec3f  oc = ray.o - p;
+    float b  = dot(oc, ray.d);
+    float c  = dot(oc, oc) - r * r;
+    float h  = b * b - c;
+    if (h < 0.0) return false;
+    dist = -b - sign(c) * sqrt(h);
+    position = ray_point(ray, dist);
+    normal   = normalize((position - p) / r);
+    uv       = vec2f{atan2(position.z, position.x), acos(position.y / r)};
     return true;
   }
+  //inline bool intersect_sphere(
+  //    const ray3f &ray, const vec3f &p, float r, vec2f &uv, float &dist)
+  //{
+  //  // compute parameters
+  //  auto a = dot(ray.d, ray.d);
+  //  auto b = 2 * dot(ray.o - p, ray.d);
+  //  auto c = dot(ray.o - p, ray.o - p) - r * r;
+
+  //  // check discriminant
+  //  auto dis = b * b - 4 * a * c;
+  //  if (dis < 0)
+  //    return false;
+
+  //  // compute ray parameter
+  //  auto t = (-b - sqrt(dis)) / (2 * a);
+
+  //  // exit if not within bounds
+  //  if (t < ray.tmin || t > ray.tmax)
+  //    return false;
+
+  //  // try other ray parameter
+  //  t = (-b + sqrt(dis)) / (2 * a);
+
+  //  // exit if not within bounds
+  //  if (t < ray.tmin || t > ray.tmax)
+  //    return false;
+
+  //  // compute local point for uvs
+  //  auto plocal = ((ray.o + ray.d * t) - p) / r;
+  //  auto u = atan2(plocal.y, plocal.x) / (2 * pif);
+  //  if (u < 0)
+  //    u += 1;
+  //  auto v = acos(clamp(plocal.z, -1.0f, 1.0f)) / pif;
+
+  //  // intersection occurred: set params and exit
+  //  uv = {u, v};
+  //  dist = t;
+  //  return true;
+  //}
 
   // Intersect a ray with a triangle
   inline bool intersect_triangle(const ray3f &ray, const vec3f &p0,
@@ -979,7 +1016,8 @@ namespace yocto
     t1 *= 1.00000024f; // for double: 1.0000000000000004
     return t0 <= t1;
   }
-  vec4f _intersect_rounded_cone(const ray3f &ray, const vec3f &pa, const vec3f &pb, float ra, float rb)
+
+  inline vec4f _intersect_rounded_cone(const ray3f &ray, const vec3f &pa, const vec3f &pb, float ra, float rb)
   {
     vec3f ba = pb - pa;
     vec3f oa = ray.o - pa;
@@ -1020,7 +1058,7 @@ namespace yocto
     if (max(h1, h2) < 0.0)
       return vec4f{-1.0, -1.0, -1.0, -1.0};
 
-    vec4f r = vec4f{1e20, 1e20, 1e20, 1e20};
+    vec4f r = vec4f{1e20f, 1e20f, 1e20f, 1e20f};
     if (h1 > 0.0)
     {
       t = -m3 - sqrt(h1);
@@ -1042,15 +1080,20 @@ namespace yocto
   inline bool intersect_rounded_cone(const ray3f &ray,
                                      const vec3f &pa, const vec3f &pb,
                                      float ra, float rb,
-                                     hit_record &rec)
+                                     vec2f& uv, float& dist, vec3f& position, vec3f& normal)
   {
     vec4f isec_vals = _intersect_rounded_cone(ray, pa, pb, ra, rb);
     if (isec_vals.x == isec_vals.y && isec_vals.z == isec_vals.w && isec_vals.y == isec_vals.z && isec_vals.x == -1.0)
       return false;
     float t = isec_vals.x;
-    rec.normal = normalize(vec3f{isec_vals.y, isec_vals.z, isec_vals.w});
-    rec.position = ray_point(ray, t);
-
+    normal = vec3f{isec_vals.y, isec_vals.z, isec_vals.w};
+    position = ray_point(ray, t);
+    vec3f w = normalize(pb - pa);
+    vec3f u = normalize(cross(w, vec3f{ 0, 0, -1 }));
+    vec3f v = normalize(cross(u, w));
+    vec3f q = (position - pa) * mat3f{ u, v, w };
+    uv = vec2f{ atan2(q.y, q.x), q.z };
+    dist = t;
     return true;
   }
 

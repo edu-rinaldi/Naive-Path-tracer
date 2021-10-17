@@ -817,8 +817,8 @@ namespace yocto
 
   // Intersect ray with a bvh.
   static bool intersect_bvh(const bvh_data &bvh, const shape_data &shape,
-                            const ray3f &ray_, int &element, vec2f &uv, float &distance,
-                            bool find_any)
+                            const ray3f &ray_, int &element, vec2f &uv, float &distance, vec3f& position, vec3f& normal,
+                            bool find_any, bool use_cone_impl, bool use_sphere_impl)
   {
 #ifdef YOCTO_EMBREE
     // call Embree if needed
@@ -882,8 +882,13 @@ namespace yocto
         for (auto idx = node.start; idx < node.start + node.num; idx++)
         {
           auto &p = shape.points[bvh.primitives[idx]];
-          if (intersect_point(
-                  ray, shape.positions[p], shape.radius[p], uv, distance))
+          bool  intersect_check = use_sphere_impl
+                            ? intersect_sphere(ray, shape.positions[p],
+                                 shape.radius[p], uv, distance, position,
+                                 normal)
+                            : intersect_point(ray, shape.positions[p],
+                                 shape.radius[p], uv, distance); 
+          if (intersect_check)
           {
             hit = true;
             element = bvh.primitives[idx];
@@ -896,8 +901,15 @@ namespace yocto
         for (auto idx = node.start; idx < node.start + node.num; idx++)
         {
           auto &l = shape.lines[bvh.primitives[idx]];
-          if (intersect_line(ray, shape.positions[l.x], shape.positions[l.y],
-                             shape.radius[l.x], shape.radius[l.y], uv, distance))
+          bool  intersect_check = use_cone_impl ? 
+              intersect_rounded_cone(ray, shape.positions[l.x],
+                        shape.positions[l.y], shape.radius[l.x],
+                        shape.radius[l.y], uv, distance, position, normal)
+                   : intersect_line(ray, shape.positions[l.x],
+                        shape.positions[l.y], shape.radius[l.x],
+                        shape.radius[l.y], uv, distance);
+
+          if (intersect_check)
           {
             hit = true;
             element = bvh.primitives[idx];
@@ -944,8 +956,8 @@ namespace yocto
 
   // Intersect ray with a bvh.
   static bool intersect_bvh(const bvh_data &bvh, const scene_data &scene,
-                            const ray3f &ray_, int &instance, int &element, vec2f &uv, float &distance,
-                            bool find_any, bool non_rigid_frames)
+                            const ray3f &ray_, int &instance, int &element, vec2f &uv, float &distance, vec3f& position, vec3f& normal, 
+                            bool find_any, bool non_rigid_frames, bool use_cone_impl, bool use_sphere_impl)
   {
 #ifdef YOCTO_EMBREE
     // call Embree if needed
@@ -1012,8 +1024,8 @@ namespace yocto
           auto inv_ray = transform_ray(
               inverse(instance_.frame, non_rigid_frames), ray);
           if (intersect_bvh(bvh.shapes[instance_.shape],
-                            scene.shapes[instance_.shape], inv_ray, element, uv, distance,
-                            find_any))
+                            scene.shapes[instance_.shape], inv_ray, element, uv, distance, position, normal,
+                            find_any, use_cone_impl, use_sphere_impl))
           {
             hit = true;
             instance = bvh.primitives[idx];
@@ -1032,13 +1044,13 @@ namespace yocto
 
   // Intersect ray with a bvh.
   static bool intersect_bvh(const bvh_data &bvh, const scene_data &scene,
-                            int instance_, const ray3f &ray, int &element, vec2f &uv, float &distance,
-                            bool find_any, bool non_rigid_frames)
+                            int instance_, const ray3f &ray, int &element, vec2f &uv, float &distance, vec3f& position, vec3f& normal, 
+                            bool find_any, bool non_rigid_frames, bool use_cone_impl, bool use_sphere_impl)
   {
     auto &instance = scene.instances[instance_];
     auto inv_ray = transform_ray(inverse(instance.frame, non_rigid_frames), ray);
     return intersect_bvh(bvh.shapes[instance.shape], scene.shapes[instance.shape],
-                         inv_ray, element, uv, distance, find_any);
+                         inv_ray, element, uv, distance, position, normal, find_any, use_cone_impl, use_sphere_impl);
   }
 
 } // namespace yocto
@@ -1282,29 +1294,30 @@ void overlap_bvh_elems(const bvh_data& bvh1, const bvh_data& bvh2,
 #endif
 
   bvh_intersection intersect_bvh(const bvh_data &bvh, const shape_data &shape,
-                                 const ray3f &ray, bool find_any)
+                                    const ray3f &ray, bool find_any, bool use_cone_impl, bool use_sphere_impl)
   {
     auto intersection = bvh_intersection{};
     intersection.hit = intersect_bvh(bvh, shape, ray, intersection.element,
-                                     intersection.uv, intersection.distance, find_any);
+                                     intersection.uv, intersection.distance, intersection.position, intersection.normal,
+                                     find_any, use_cone_impl, use_sphere_impl);
     return intersection;
   }
   bvh_intersection intersect_bvh(const bvh_data &bvh, const scene_data &scene,
-                                 const ray3f &ray, bool find_any, bool non_rigid_frames)
+                                 const ray3f &ray, bool find_any, bool non_rigid_frames, bool use_cone_impl, bool use_sphere_impl)
   {
     auto intersection = bvh_intersection{};
     intersection.hit = intersect_bvh(bvh, scene, ray, intersection.instance,
-                                     intersection.element, intersection.uv, intersection.distance, find_any,
-                                     non_rigid_frames);
+                                     intersection.element, intersection.uv, intersection.distance, intersection.position, intersection.normal, find_any,
+                                     non_rigid_frames, use_cone_impl, use_sphere_impl);
     return intersection;
   }
   bvh_intersection intersect_bvh(const bvh_data &bvh, const scene_data &scene,
-                                 int instance, const ray3f &ray, bool find_any, bool non_rigid_frames)
+                                 int instance, const ray3f &ray, bool find_any, bool non_rigid_frames, bool use_cone_impl, bool use_sphere_impl)
   {
     auto intersection = bvh_intersection{};
     intersection.hit = intersect_bvh(bvh, scene, instance, ray,
-                                     intersection.element, intersection.uv, intersection.distance, find_any,
-                                     non_rigid_frames);
+                                     intersection.element, intersection.uv, intersection.distance, intersection.position, intersection.normal, find_any,
+                                     non_rigid_frames, use_cone_impl, use_sphere_impl);
     intersection.instance = instance;
     return intersection;
   }

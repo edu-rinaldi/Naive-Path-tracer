@@ -214,6 +214,9 @@ void run_interactive(const string& filename, const string& output,
     if (begin_glheader("render")) {
       auto edited  = 0;
       auto tparams = params;
+      edited += draw_glcheckbox("Draw lines as cones", tparams.line_as_cone);
+      edited += draw_glcheckbox(
+          "Draw points as spheres", tparams.point_as_sphere);
       edited += draw_glcombobox("camera", tparams.camera, camera_names);
       edited += draw_glslider("resolution", tparams.resolution, 180, 4096);
       edited += draw_glslider("samples", tparams.samples, 16, 4096);
@@ -297,6 +300,8 @@ void run(const vector<string>& args) {
   add_option(cli, "samples", params.samples, "Number of samples.", {1, 4096});
   add_option(cli, "bounces", params.bounces, "Number of bounces.", {1, 8});
   add_option(cli, "noparallel", params.noparallel, "Disable threading.");
+  add_option(cli, "linecone", params.line_as_cone, "Render lines as round cones.");
+  add_option(cli, "pointsphere", params.point_as_sphere, "Render points as spheres.");
   if (!parse_cli(cli, args, error)) print_fatal(error);
 
   // run

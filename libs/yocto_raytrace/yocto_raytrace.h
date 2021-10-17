@@ -90,6 +90,8 @@ struct raytrace_params {
   int                  pratio     = 8;
   float                exposure   = 0;
   bool                 filmic     = false;
+  bool                 line_as_cone = false;
+  bool                 point_as_sphere = false;
 };
 
 const auto raytrace_shader_names = vector<string>{

@@ -111,6 +111,8 @@ struct bvh_intersection {
   int   instance = -1;
   int   element  = -1;
   vec2f uv       = {0, 0};
+  vec3f normal = { 0,0,0 };
+  vec3f position = { 0,0,0 };
   float distance = 0;
   bool  hit      = false;
 };
@@ -119,12 +121,14 @@ struct bvh_intersection {
 // depending on `find_any`. Returns the ray distance , the instance id,
 // the shape element index and the element barycentric coordinates.
 bvh_intersection intersect_bvh(const bvh_data& bvh, const shape_data& shape,
-    const ray3f& ray, bool find_any = false, bool non_rigid_frames = true);
+    const ray3f& ray, bool find_any = false, bool non_rigid_frames = true,
+    bool use_cone_impl = false, bool use_sphere_impl = false);
 bvh_intersection intersect_bvh(const bvh_data& bvh, const scene_data& scene,
-    const ray3f& ray, bool find_any = false, bool non_rigid_frames = true);
+    const ray3f& ray, bool find_any = false, bool non_rigid_frames = true,
+    bool use_cone_impl = false, bool use_sphere_impl = false);
 bvh_intersection intersect_bvh(const bvh_data& bvh, const scene_data& scene,
     int instance, const ray3f& ray, bool find_any = false,
-    bool non_rigid_frames = true);
+    bool non_rigid_frames = true, bool use_cone_impl = false, bool use_sphere_impl = false);
 
 // Find a shape element that overlaps a point within a given distance
 // max distance, returning either the closest or any overlap depending on

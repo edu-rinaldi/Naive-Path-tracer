@@ -63,7 +63,8 @@ namespace yocto
                               const ray3f &ray, int bounce, rng_state &rng,
                               const raytrace_params &params)
   {
-    const bvh_intersection &isec = intersect_bvh(bvh, scene, ray);
+    const bvh_intersection &isec = intersect_bvh(bvh, scene, ray, false, true, params.line_as_cone, params.point_as_sphere);
+
     // No intersect ==> radiance from env
     if (!isec.hit)
       return xyzw(eval_environment(scene, ray.d), 1);
@@ -71,8 +72,19 @@ namespace yocto
     // Retrieve instance, shape, pos, normals
     const instance_data &instance = scene.instances[isec.instance];
     const shape_data &shape = scene.shapes[instance.shape];
-    vec3f position = transform_point(instance.frame, eval_position(shape, isec.element, isec.uv));
-    vec3f normal = transform_direction(instance.frame, eval_normal(shape, isec.element, isec.uv));
+    vec3f position, normal;
+    if ((!shape.points.empty() && params.point_as_sphere) || (!shape.lines.empty() && params.line_as_cone))
+    {
+      position = transform_point(instance.frame, isec.position);
+      normal   = transform_direction(instance.frame, isec.normal);      
+    }
+    else
+    {
+      position = transform_point(
+          instance.frame, eval_position(shape, isec.element, isec.uv));
+      normal = transform_direction(
+          instance.frame, eval_normal(shape, isec.element, isec.uv));
+    }
 
     // Outgoing direction
     vec3f outgoing = -ray.d;
@@ -179,15 +191,21 @@ namespace yocto
                               const ray3f &ray, int bounce, rng_state &rng,
                               const raytrace_params &params)
   {
-    const auto &intersection = intersect_bvh(bvh, scene, ray);
+    const auto &intersection = intersect_bvh(bvh, scene, ray, false, true, params.line_as_cone, params.point_as_sphere);
     if (!intersection.hit)
       return zero4f; // No intersection
 
     // Retrieve instance, shape, normal and material info
     const instance_data &instance = scene.instances[intersection.instance];
     const auto &shape = scene.shapes[instance.shape];
-    auto normal = transform_direction(instance.frame,
-                                      eval_normal(shape, intersection.element, intersection.uv));
+    vec3f normal;
+    if ((!shape.points.empty() && params.point_as_sphere) || (!shape.lines.empty() && params.line_as_cone)) 
+      normal = transform_direction(instance.frame, intersection.normal);
+    else 
+        normal = transform_direction(instance.frame, eval_normal(shape, intersection.element, intersection.uv));
+      
+
+    // auto normal = transform_direction(instance.frame, eval_normal(shape, intersection.element, intersection.uv));
     auto material = scene.materials[instance.material];
     auto texcoords = eval_texcoord(shape, intersection.element, intersection.uv);
     vec4f color = xyzw(material.color, 1) * eval_texture(scene, material.color_tex, texcoords) * dot(normal, -ray.d);
@@ -198,15 +216,19 @@ namespace yocto
                             const ray3f &ray, int bounce, rng_state &rng,
                             const raytrace_params &params)
   {
-    const auto &intersection = intersect_bvh(bvh, scene, ray);
+    const auto &intersection = intersect_bvh(bvh, scene, ray, false, true, params.line_as_cone, params.point_as_sphere);
     if (!intersection.hit)
       return zero4f; // No intersection
 
     // Retrieve instance, shape, normal
     const instance_data &instance = scene.instances[intersection.instance];
     const auto &shape = scene.shapes[instance.shape];
-    const auto &normal = transform_direction(instance.frame,
-                                             eval_normal(shape, intersection.element, intersection.uv));
+    vec3f normal;
+    if ((!shape.points.empty() && params.point_as_sphere) || (!shape.lines.empty() && params.line_as_cone))
+      normal = transform_direction(instance.frame, intersection.normal);
+    else
+      normal = transform_direction(instance.frame, eval_normal(shape, intersection.element, intersection.uv));
+
     const vec3f color = normal * 0.5f + 0.5f;
     return {color.x, color.y, color.z, 1.f};
   }
@@ -215,16 +237,15 @@ namespace yocto
                               const ray3f &ray, int bounce, rng_state &rng,
                               const raytrace_params &params)
   {
-    const auto &intersection = intersect_bvh(bvh, scene, ray);
+    const auto &intersection = intersect_bvh(bvh, scene, ray, false, true, params.line_as_cone, params.point_as_sphere);
     if (!intersection.hit)
       return zero4f; // No intersection
 
     // Retrieve instance, shape and texcoords
     const instance_data &instance = scene.instances[intersection.instance];
     const auto &shape = scene.shapes[instance.shape];
-    const auto &texcoords = eval_texcoord(
+    auto texcoords = eval_texcoord(
         shape, intersection.element, intersection.uv);
-
     return {fmod(texcoords.x, 1.f), fmod(texcoords.y, 1.f), 0.f, 1.f};
   }
 
@@ -232,7 +253,7 @@ namespace yocto
                            const ray3f &ray, int bounce, rng_state &rng,
                            const raytrace_params &params)
   {
-    const auto &intersection = intersect_bvh(bvh, scene, ray);
+    const auto &intersection = intersect_bvh(bvh, scene, ray, false, true, params.line_as_cone, params.point_as_sphere);
     if (!intersection.hit)
       return zero4f;
     const instance_data &instance = scene.instances[intersection.instance];
