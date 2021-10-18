@@ -839,84 +839,24 @@ namespace yocto
   // Intersect a ray with a sphere
   inline bool intersect_sphere(const ray3f& ray, const vec3f& p, float r, vec2f& uv, float& dist, vec3f& position, vec3f& normal)
   {
-    // If discriminant > 0 (there're 2 root) ==> hit at (-b -
-    // sqrt(discriminant)) / 2a Use this formula: t^2 * dot(b,b)     +   t * 2 *
-    // dot(b,(A−C))    +   dot((A−C),(A−C)) − r^2=0 Where:
-    //  - A = ray origin
-    //  - b = ray direction
-    //  - C = sphere center
-    //  - r = sphere ray
-    //vec3f oc = ray.o - p;
-    //float a     = dot(ray.d, ray.d);
-    //float halfB = dot(ray.d, oc);
-    //float c     = dot(oc, oc) - pow(r, 2);
-
-    //// Dicriminant > 0 ?
-    //float discriminant = pow(halfB, 2) - (a * c);
-
-    //if (discriminant < 0) return false;
-
-    //float root = (-halfB - sqrt(discriminant)) / a;
-    //if (root < ray.tmin || root > ray.tmax) {
-    //  root = (-halfB + sqrt(discriminant)) / a;
-    //  if (root < ray.tmin || root > ray.tmax) return false;
-    //}
-
-    //dist     = root;
-    //position = ray_point(ray, dist);
-    //normal   = normalize((position - p) / r);
-    //uv       = vec2f{atan2(position.z, position.x), acos(position.y / r)};
-    //return true;
-    vec3f  oc = ray.o - p;
-    float b  = dot(oc, ray.d);
+    vec3f  oc = ray.o - p;  // Sphere center to ray origin vector
+    // Solving the ray sphere intersection equation
+    float b  = dot(oc, ray.d); 
     float c  = dot(oc, oc) - r * r;
     float h  = b * b - c;
+    // No hit if discriminant < 0
     if (h < 0.0) return false;
+    // Otherwise t s.t. r.o + r.d * t == hit point is resolved by:
     dist = -b - sign(c) * sqrt(h);
+    // Compute the hit point
     position = ray_point(ray, dist);
+    // Compute normal
     normal   = normalize((position - p) / r);
+    // Compute uv
     uv       = vec2f{atan2(position.z, position.x), acos(position.y / r)};
     return true;
   }
-  //inline bool intersect_sphere(
-  //    const ray3f &ray, const vec3f &p, float r, vec2f &uv, float &dist)
-  //{
-  //  // compute parameters
-  //  auto a = dot(ray.d, ray.d);
-  //  auto b = 2 * dot(ray.o - p, ray.d);
-  //  auto c = dot(ray.o - p, ray.o - p) - r * r;
 
-  //  // check discriminant
-  //  auto dis = b * b - 4 * a * c;
-  //  if (dis < 0)
-  //    return false;
-
-  //  // compute ray parameter
-  //  auto t = (-b - sqrt(dis)) / (2 * a);
-
-  //  // exit if not within bounds
-  //  if (t < ray.tmin || t > ray.tmax)
-  //    return false;
-
-  //  // try other ray parameter
-  //  t = (-b + sqrt(dis)) / (2 * a);
-
-  //  // exit if not within bounds
-  //  if (t < ray.tmin || t > ray.tmax)
-  //    return false;
-
-  //  // compute local point for uvs
-  //  auto plocal = ((ray.o + ray.d * t) - p) / r;
-  //  auto u = atan2(plocal.y, plocal.x) / (2 * pif);
-  //  if (u < 0)
-  //    u += 1;
-  //  auto v = acos(clamp(plocal.z, -1.0f, 1.0f)) / pif;
-
-  //  // intersection occurred: set params and exit
-  //  uv = {u, v};
-  //  dist = t;
-  //  return true;
-  //}
 
   // Intersect a ray with a triangle
   inline bool intersect_triangle(const ray3f &ray, const vec3f &p0,
@@ -1041,9 +981,6 @@ namespace yocto
     if (h < 0.0)
       return vec4f{-1.0, -1.0, -1.0, -1.0};
     float t = (-sqrt(h) - k1) / k2;
-
-    // if (t < 0.0)
-    // return vec4f{-1.0, -1.0, -1.0, -1.0};
 
     float y = m1 - ra * rr + t * m2;
     if (y > 0.0 && y < d2)
