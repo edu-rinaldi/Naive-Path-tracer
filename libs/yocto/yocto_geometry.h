@@ -847,13 +847,18 @@ namespace yocto
     // No hit if discriminant < 0
     if (h < 0.0) return false;
     // Otherwise t s.t. r.o + r.d * t == hit point is resolved by:
-    dist = -b - sign(c) * sqrt(h);
+    h    = sqrt(h);
+    dist = min(-b - h, -b + h);
     // Compute the hit point
-    position = ray_point(ray, dist);
+    // compute local point for uvs
+    position = (ray_point(ray, dist)-p)/r;
     // Compute normal
-    normal   = normalize((position - p) / r);
+    normal   = normalize(position);
     // Compute uv
-    uv       = vec2f{atan2(position.z, position.x), acos(position.y / r)};
+    auto u = atan2(normal.y, normal.x) / (2 * pif);
+    if (u < 0) u += 1;
+    auto v = acos(clamp(normal.z, -1.0f, 1.0f)) / pif;
+    uv = vec2f{u, v};
     return true;
   }
 
@@ -975,15 +980,15 @@ namespace yocto
     float d2 = m0 - rr * rr;
     float k2 = d2 - m2 * m2;
     float k1 = d2 * m3 - m1 * m2 + m2 * rr * ra;
-    float k0 = d2 * m5 - m1 * m1 + m1 * rr * ra * 2.0 - m0 * ra * ra;
+    float k0 = d2 * m5 - m1 * m1 + m1 * rr * ra * 2.0f - m0 * ra * ra;
 
     float h = k1 * k1 - k0 * k2;
-    if (h < 0.0)
-      return vec4f{-1.0, -1.0, -1.0, -1.0};
+    if (h < 0.0f)
+      return vec4f{-1.0f, -1.0f, -1.0f, -1.0f};
     float t = (-sqrt(h) - k1) / k2;
 
     float y = m1 - ra * rr + t * m2;
-    if (y > 0.0 && y < d2)
+    if (y > 0.0f && y < d2)
     {
       vec3f normal = normalize(d2 * (oa + t * ray.d) - ba * y);
       return vec4f{t, normal.x, normal.y, normal.z};
@@ -993,16 +998,16 @@ namespace yocto
     float h1 = m3 * m3 - m5 + ra * ra;
     float h2 = m6 * m6 - m7 + rb * rb;
     if (max(h1, h2) < 0.0)
-      return vec4f{-1.0, -1.0, -1.0, -1.0};
+      return vec4f{-1.0f, -1.0f, -1.0f, -1.0f};
 
     vec4f r = vec4f{1e20f, 1e20f, 1e20f, 1e20f};
-    if (h1 > 0.0)
+    if (h1 > 0.0f)
     {
       t = -m3 - sqrt(h1);
       vec3f normal = normalize((oa + t * ray.d) / ra);
       r = {t, normal.x, normal.y, normal.z};
     }
-    if (h2 > 0.0)
+    if (h2 > 0.0f)
     {
       t = -m6 - sqrt(h2);
       if (t < r.x)
@@ -1022,15 +1027,14 @@ namespace yocto
     vec4f isec_vals = _intersect_rounded_cone(ray, pa, pb, ra, rb);
     if (isec_vals.x == isec_vals.y && isec_vals.z == isec_vals.w && isec_vals.y == isec_vals.z && isec_vals.x == -1.0)
       return false;
-    float t = isec_vals.x;
+    dist = isec_vals.x;
     normal = vec3f{isec_vals.y, isec_vals.z, isec_vals.w};
-    position = ray_point(ray, t);
+    position = ray_point(ray, dist);
     vec3f w = normalize(pb - pa);
     vec3f u = normalize(cross(w, vec3f{ 0, 0, -1 }));
     vec3f v = normalize(cross(u, w));
     vec3f q = (position - pa) * mat3f{ u, v, w };
     uv = vec2f{ atan2(q.y, q.x), q.z };
-    dist = t;
     return true;
   }
 

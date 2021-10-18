@@ -76,7 +76,7 @@ namespace yocto
     if ((!shape.points.empty() && params.point_as_sphere) || (!shape.lines.empty() && params.line_as_cone))
     {
       position = transform_point(instance.frame, isec.position);
-      normal   = transform_direction(instance.frame, isec.normal);      
+      normal   = transform_direction(instance.frame, isec.normal);
     }
     else
     {
@@ -94,7 +94,7 @@ namespace yocto
       normal = -normal;
 
     // Dealing with hairs
-    if (!shape.lines.empty())
+    if (!shape.lines.empty() && !params.line_as_cone)
       normal = orthonormalize(outgoing, normal);
 
     // Texcoords
@@ -139,9 +139,9 @@ namespace yocto
     // Glossy
     else if (material.type == material_type::glossy)
     {
+      
       vec3f normalRefl = normal;
-      if (roughness > 0)
-      {
+      if (roughness > 0) {
         float exponent = 2.f / (roughness * roughness);
         normalRefl = sample_hemisphere_cospower(exponent, normal, rand2f(rng));
       }
@@ -162,7 +162,7 @@ namespace yocto
     else if (material.type == material_type::transparent)
     {
       // Reflect or absorb?
-      if (rand1f(rng) < fresnel_schlick(vec3f{0.04, 0.04, 0.04}, normal, outgoing).x)
+      if (rand1f(rng) < fresnel_schlick(vec3f{0.04f, 0.04f, 0.04f}, normal, outgoing).x)
       {
         // reflect
         vec3f incoming = reflect(outgoing, normal);
@@ -204,9 +204,9 @@ namespace yocto
     else 
         normal = transform_direction(instance.frame, eval_normal(shape, intersection.element, intersection.uv));
       
-
-    // auto normal = transform_direction(instance.frame, eval_normal(shape, intersection.element, intersection.uv));
-    auto material = scene.materials[instance.material];
+    if (!shape.lines.empty()) normal = orthonormalize(-ray.d, normal);
+    
+    const auto& material = scene.materials[instance.material];
     auto texcoords = eval_texcoord(shape, intersection.element, intersection.uv);
     vec4f color = xyzw(material.color, 1) * eval_texture(scene, material.color_tex, texcoords) * dot(normal, -ray.d);
     return color;
@@ -229,6 +229,8 @@ namespace yocto
     else
       normal = transform_direction(instance.frame, eval_normal(shape, intersection.element, intersection.uv));
 
+    if (!shape.lines.empty() && !params.line_as_cone)
+      normal = orthonormalize(-ray.d, normal);
     const vec3f color = normal * 0.5f + 0.5f;
     return {color.x, color.y, color.z, 1.f};
   }
