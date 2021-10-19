@@ -966,9 +966,10 @@ namespace yocto
 
   inline vec4f _intersect_rounded_cone(const ray3f &ray, const vec3f &pa, const vec3f &pb, float ra, float rb)
   {
-    vec3f ba = pb - pa;
-    vec3f oa = ray.o - pa;
-    vec3f ob = ray.o - pb;
+    
+    vec3f ba = (pb - pa);
+    vec3f oa = (ray.o - pa);
+    vec3f ob = (ray.o - pb);
     float rr = ra - rb;
     float m0 = dot(ba, ba);
     float m1 = dot(ba, oa);
@@ -977,7 +978,7 @@ namespace yocto
     float m5 = dot(oa, oa);
     float m6 = dot(ob, ray.d);
     float m7 = dot(ob, ob);
-
+    
     // body
     float d2 = m0 - rr * rr;
     float k2 = d2 - m2 * m2;
@@ -987,15 +988,15 @@ namespace yocto
     float h = k1 * k1 - k0 * k2;
     if (h < 0.0f)
       return vec4f{-1.0f, -1.0f, -1.0f, -1.0f};
-    float t = (-sqrt(h) - k1) / k2;
-
+    float t = (-sqrt(h) - k1)/k2;
+    if (t < 0) return vec4f{-1.0f, -1.0f, -1.0f, -1.0f};
     float y = m1 - ra * rr + t * m2;
     if (y > 0.0f && y < d2)
     {
       vec3f normal = normalize(d2 * (oa + t * ray.d) - ba * y);
       return vec4f{t, normal.x, normal.y, normal.z};
     }
-
+    
     // caps
     float h1 = m3 * m3 - m5 + ra * ra;
     float h2 = m6 * m6 - m7 + rb * rb;
@@ -1003,18 +1004,31 @@ namespace yocto
       return vec4f{-1.0f, -1.0f, -1.0f, -1.0f};
 
     vec4f r = vec4f{1e20f, 1e20f, 1e20f, 1e20f};
+    vec3f position = zero3f;
+    vec3f normal   = zero3f;
+    vec2f uv       = zero2f;
+    float dist;
+    /*if(intersect_sphere(ray, pa, ra, uv, dist, position, normal)) 
+    {
+      r = {dist, normal.x, normal.y, normal.z};
+    }
+    if (intersect_sphere(ray, pb, rb, uv, dist, position, normal)) {
+      if (dist < r.x) r = {dist, normal.x, normal.y, normal.z};
+    }
+    return r;*/
     if (h1 > 0.0f)
     {
       t = -m3 - sqrt(h1);
-      vec3f normal = normalize((oa + t * ray.d) / ra);
+      vec3f normal = normalize((ray_point(ray, t) - pa)/ ra);
       r = {t, normal.x, normal.y, normal.z};
     }
+    float t2 = 0;
     if (h2 > 0.0f)
     {
       t = -m6 - sqrt(h2);
       if (t < r.x)
       {
-        vec3f normal = normalize((ob + t * ray.d) / rb);
+        vec3f normal = normalize((ray_point(ray, t) - pb) / rb);
         r = vec4f{t, normal.x, normal.y, normal.z};
       }
     }

@@ -54,6 +54,7 @@ namespace yocto
 // -----------------------------------------------------------------------------
 // IMPLEMENTATION FOR PATH TRACING
 // -----------------------------------------------------------------------------
+
 namespace yocto
 {
   vec4f xyzw(const vec3f &v, float w) { return vec4f{v.x, v.y, v.z, w}; }
@@ -64,7 +65,7 @@ namespace yocto
                               const raytrace_params &params)
   {
     const bvh_intersection &isec = intersect_bvh(bvh, scene, ray, false, true, params.line_as_cone, params.point_as_sphere);
-    bool cond = isec.instance == 7 && isec.element == 0;
+    // bool cond = isec.instance == 7 && (isec.element == 2 || isec.element == 3);
     // No intersect ==> radiance from env
     if (!isec.hit)
       return xyzw(eval_environment(scene, ray.d), 1.f);
@@ -106,6 +107,7 @@ namespace yocto
     vec3f emission = material.emission * xyz(eval_texture(scene, material.emission_tex, texcoords, true));
     vec4f color_tex = eval_texture(scene, material.color_tex, texcoords, true);
     vec3f color = material.color * xyz(color_tex); // * xyz(eval_color(scene, instance, isec.element, isec.uv));
+    //color = isec.element == 2 ? vec3f{1, 0, 0} : vec3f{0, 1, 0};
     float roughness = material.roughness * xyz(eval_texture(scene, material.roughness_tex, texcoords, false)).y;
     roughness *= roughness;
 
