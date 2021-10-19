@@ -914,6 +914,7 @@ namespace yocto
             hit = true;
             element = bvh.primitives[idx];
             ray.tmax = distance;
+            return hit;
           }
         }
       }

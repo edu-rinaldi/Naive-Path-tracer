@@ -64,10 +64,10 @@ namespace yocto
                               const raytrace_params &params)
   {
     const bvh_intersection &isec = intersect_bvh(bvh, scene, ray, false, true, params.line_as_cone, params.point_as_sphere);
-
+    bool cond = isec.instance == 7 && isec.element == 0;
     // No intersect ==> radiance from env
     if (!isec.hit)
-      return xyzw(eval_environment(scene, ray.d), 1);
+      return xyzw(eval_environment(scene, ray.d), 1.f);
 
     // Retrieve instance, shape, pos, normals
     const instance_data &instance = scene.instances[isec.instance];
@@ -183,7 +183,9 @@ namespace yocto
                            const raytrace_params &params)
   {
     // YOUR CODE GOES HERE
-    return {0, 0, 0, 0};
+    const bvh_intersection &isec = intersect_bvh(bvh, scene, ray, false, true, params.line_as_cone, params.point_as_sphere);
+    if(!isec.hit) return zero4f;
+    return {isec.uv.x, isec.uv.y, 0, 1};
   }
 
   // Eyelight for quick previewing.

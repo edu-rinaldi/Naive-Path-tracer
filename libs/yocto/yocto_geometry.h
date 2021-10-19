@@ -848,12 +848,14 @@ namespace yocto
     if (h < 0.0) return false;
     // Otherwise t s.t. r.o + r.d * t == hit point is resolved by:
     h    = sqrt(h);
-    dist = min(-b - h, -b + h);
+    dist = -b - sign(c) * h;
+    if(dist < ray.tmin || dist > ray.tmax) return false;
     // Compute the hit point
     // compute local point for uvs
-    position = (ray_point(ray, dist)-p)/r;
-    // Compute normal
-    normal   = normalize(position);
+    position = ray_point(ray, dist);
+    normal = normalize((ray_point(ray, dist)-p)/r);
+    //position = (ray_point(ray, dist)-p)/r; 
+    // normal   = normalize(position);
     // Compute uv
     auto u = atan2(normal.y, normal.x) / (2 * pif);
     if (u < 0) u += 1;
@@ -1027,6 +1029,7 @@ namespace yocto
     vec4f isec_vals = _intersect_rounded_cone(ray, pa, pb, ra, rb);
     if (isec_vals.x == isec_vals.y && isec_vals.z == isec_vals.w && isec_vals.y == isec_vals.z && isec_vals.x == -1.0)
       return false;
+    if(isec_vals.x < ray.tmin || isec_vals.x > ray.tmax) return false;
     dist = isec_vals.x;
     normal = vec3f{isec_vals.y, isec_vals.z, isec_vals.w};
     position = ray_point(ray, dist);
