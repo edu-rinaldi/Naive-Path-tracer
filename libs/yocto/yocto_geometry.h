@@ -1004,18 +1004,6 @@ namespace yocto
       return vec4f{-1.0f, -1.0f, -1.0f, -1.0f};
 
     vec4f r = vec4f{1e20f, 1e20f, 1e20f, 1e20f};
-    vec3f position = zero3f;
-    vec3f normal   = zero3f;
-    vec2f uv       = zero2f;
-    float dist;
-    /*if(intersect_sphere(ray, pa, ra, uv, dist, position, normal)) 
-    {
-      r = {dist, normal.x, normal.y, normal.z};
-    }
-    if (intersect_sphere(ray, pb, rb, uv, dist, position, normal)) {
-      if (dist < r.x) r = {dist, normal.x, normal.y, normal.z};
-    }
-    return r;*/
     if (h1 > 0.0f)
     {
       t = -m3 - sqrt(h1);

@@ -65,8 +65,6 @@ namespace yocto
                               const raytrace_params &params)
   {
     const bvh_intersection &isec = intersect_bvh(bvh, scene, ray, false, true, params.line_as_cone, params.point_as_sphere);
-    // bool cond = isec.instance == 7 && (isec.element == 2 || isec.element == 3);
-    // No intersect ==> radiance from env
     if (!isec.hit)
       return xyzw(eval_environment(scene, ray.d), 1.f);
 
@@ -106,8 +104,7 @@ namespace yocto
     const material_data &material = scene.materials[instance.material];
     vec3f emission = material.emission * xyz(eval_texture(scene, material.emission_tex, texcoords, true));
     vec4f color_tex = eval_texture(scene, material.color_tex, texcoords, true);
-    vec3f color = material.color * xyz(color_tex); // * xyz(eval_color(scene, instance, isec.element, isec.uv));
-    //color = isec.element == 2 ? vec3f{1, 0, 0} : vec3f{0, 1, 0};
+    vec3f color = material.color * xyz(color_tex);
     float roughness = material.roughness * xyz(eval_texture(scene, material.roughness_tex, texcoords, false)).y;
     roughness *= roughness;
 
@@ -185,6 +182,7 @@ namespace yocto
                            const raytrace_params &params)
   {
     // YOUR CODE GOES HERE
+    // This shader has been used for debug purposes
     const bvh_intersection &isec = intersect_bvh(bvh, scene, ray, false, true, params.line_as_cone, params.point_as_sphere);
     if(!isec.hit) return zero4f;
     return {isec.uv.x, isec.uv.y, 0, 1};
@@ -212,7 +210,10 @@ namespace yocto
     
     const auto& material = scene.materials[instance.material];
     auto texcoords = eval_texcoord(shape, intersection.element, intersection.uv);
-    vec4f color = xyzw(material.color, 1) * eval_texture(scene, material.color_tex, texcoords) * dot(normal, -ray.d);
+    texcoords = {fmod(texcoords.x, 1.f), fmod(texcoords.y, 1.f)};
+
+    vec4f color = xyzw(material.color, 1) *
+                  eval_texture(scene, material.color_tex, texcoords) * dot(normal, -ray.d);
     return color;
   }
 
