@@ -1032,22 +1032,21 @@ namespace yocto
                                      float ra, float rb,
                                      vec2f& uv, float& dist, vec3f& position, vec3f& normal)
   {
-    // If no hit return false
-    float tmp_t;
-    if (!_intersect_rounded_cone(ray, pa, pb, ra, rb, tmp_t, normal))
+    // If no hit return 
+    if (!_intersect_rounded_cone(ray, pa, pb, ra, rb, dist, normal))
       return false;
-
-    // Retrieve dist (aka t) and normals
-    dist = tmp_t;
     // Calc hit point
     position = ray_point(ray, dist);
 
-    vec3f w = normalize(pb - pa);
-    vec3f u = normalize(cross(w, vec3f{ 0, 0, 1 }));
-    vec3f v = normalize(cross(u, w));
-    vec3f q = (normal) * transpose(mat3f{ w, v, u });
+    auto  a   = dot(ray.d, ray.d);
+    auto  b   = dot(ray.d, pb-pa);
+    auto  c   = dot(pb - pa, pb - pa);
+    auto  d   = dot(ray.d, ray.o - pa);
+    auto  e   = dot(pb - pa, ray.o - pa);
+    auto  det = a * c - b * b;
+    auto  s   = clamp((a * e - b * d) / det, 0.f, 1.f);
     // UV Coords
-    uv = vec2f{ atan2(q.y, q.x), q.z };
+    uv = vec2f{s, acos(clamp(normal.z, -1.0f, 1.0f)) / pif};
     return true;
   }
 

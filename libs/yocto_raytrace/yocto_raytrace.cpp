@@ -94,14 +94,11 @@ namespace yocto
     // Outgoing direction
     vec3f outgoing = -ray.d;
 
-    // in object?
-    if (dot(normal, outgoing) < 0)
-      normal = -normal;
-
-    // Dealing with hairs
+    // Dealing with lines
     if (!shape.lines.empty() && !params.line_as_cone)
       normal = orthonormalize(outgoing, normal);
-
+    // in object?
+    else if (!shape.triangles.empty() && dot(normal, outgoing) < 0) normal = -normal;
     // Texcoords
     vec2f texcoords = eval_texcoord(shape, isec.element, isec.uv);
     texcoords = vec2f{fmod(texcoords.x, 1.f), fmod(texcoords.y, 1.f)};
@@ -116,12 +113,13 @@ namespace yocto
 
     // Opacity
     float opacity = material.opacity * color_tex.w;
-    if (rand1f(rng) < 1 - opacity)
+    if (rand1f(rng) > opacity)
     {
       return shade_raytrace(scene, bvh, ray3f{position, ray.d}, bounce + 1, rng, params);
     }
-
+    
     vec3f radiance = emission;
+    // Bounce limit
     if (bounce >= params.bounces)
       return xyzw(radiance, 1);
 
@@ -168,7 +166,7 @@ namespace yocto
     // Transparent
     else if (material.type == material_type::transparent)
     {
-      // Reflect or absorb?
+      // Reflect or "absorb"?
       if (rand1f(rng) < fresnel_schlick(vec3f{0.04f}, normal, outgoing).x)
       {
         // reflect
@@ -177,6 +175,7 @@ namespace yocto
       }
       else
       {
+        // "Absorb"
         vec3f incoming = -outgoing;
         radiance += material.color * xyz(shade_raytrace(scene, bvh, ray3f{position, incoming}, bounce + 1, rng, params));
       }
@@ -190,10 +189,8 @@ namespace yocto
                            const raytrace_params &params)
   {
     // YOUR CODE GOES HERE
-    // This shader has been used for debug purposes
-    const bvh_intersection &isec = intersect_bvh(bvh, scene, ray, false, true, params.line_as_cone, params.point_as_sphere);
-    if(!isec.hit) return zero4f;
-    return {isec.uv.x, isec.uv.y, 0, 1};
+    // Already handled in yocto::shade_raytrace
+    return zero4f;
   }
 
   // Eyelight for quick previewing.
@@ -215,7 +212,8 @@ namespace yocto
     else 
         normal = transform_direction(instance.frame, eval_normal(shape, intersection.element, intersection.uv));
       
-    if (!shape.lines.empty()) normal = orthonormalize(-ray.d, normal);
+    if (!shape.lines.empty() && !params.line_as_cone)
+      normal = orthonormalize(-ray.d, normal);
     
     const material_data& material = scene.materials[instance.material];
     vec2f texcoords = eval_texcoord(shape, intersection.element, intersection.uv);
@@ -278,6 +276,17 @@ namespace yocto
     return {material.color.x, material.color.y, material.color.z, 1.f};
   }
 
+  static vec4f shade_uv(const scene_data& scene, const bvh_scene& bvh,
+      const ray3f& ray, int bounce, rng_state& rng,
+      const raytrace_params& params) 
+  {
+    // This shader has been used for debug purposes
+    const bvh_intersection &isec = intersect_bvh(bvh, scene, ray, false, true,
+        params.line_as_cone, params.point_as_sphere);
+    if (!isec.hit) return zero4f;
+    return {isec.uv.x, isec.uv.y, 0, 1};
+  }
+
   // Trace a single ray from the camera using the given algorithm.
   using raytrace_shader_func = vec4f (*)(const scene_data &scene,
                                          const bvh_scene &bvh, const ray3f &ray, int bounce, rng_state &rng,
@@ -298,6 +307,8 @@ namespace yocto
       return shade_texcoord;
     case raytrace_shader_type::color:
       return shade_color;
+    case raytrace_shader_type::uv: 
+        return shade_uv;
     default:
     {
       throw std::runtime_error("sampler unknown");
