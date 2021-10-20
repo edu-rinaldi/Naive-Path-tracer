@@ -851,11 +851,8 @@ namespace yocto
     dist = -b - sign(c) * h;
     if(dist < ray.tmin || dist > ray.tmax) return false;
     // Compute the hit point
-    // compute local point for uvs
     position = ray_point(ray, dist);
     normal = normalize((ray_point(ray, dist)-p)/r);
-    //position = (ray_point(ray, dist)-p)/r; 
-    // normal   = normalize(position);
     // Compute uv
     auto u = atan2(normal.y, normal.x) / (2 * pif);
     if (u < 0) u += 1;
@@ -964,9 +961,8 @@ namespace yocto
     return t0 <= t1;
   }
 
-  inline vec4f _intersect_rounded_cone(const ray3f &ray, const vec3f &pa, const vec3f &pb, float ra, float rb)
+  inline bool _intersect_rounded_cone(const ray3f &ray, const vec3f &pa, const vec3f &pb, float ra, float rb, float& dist, vec3f& normal)
   {
-    
     vec3f ba = (pb - pa);
     vec3f oa = (ray.o - pa);
     vec3f ob = (ray.o - pb);
@@ -986,22 +982,27 @@ namespace yocto
     float k0 = d2 * m5 - m1 * m1 + m1 * rr * ra * 2.0f - m0 * ra * ra;
 
     float h = k1 * k1 - k0 * k2;
-    if (h < 0.0f)
-      return vec4f{-1.0f, -1.0f, -1.0f, -1.0f};
+    if (h < 0.0f) return false;
+    
     float t = (-sqrt(h) - k1)/k2;
-    if (t < 0) return vec4f{-1.0f, -1.0f, -1.0f, -1.0f};
+
+    if (t < 0) return false;
+    
     float y = m1 - ra * rr + t * m2;
     if (y > 0.0f && y < d2)
     {
-      vec3f normal = normalize(d2 * (oa + t * ray.d) - ba * y);
-      return vec4f{t, normal.x, normal.y, normal.z};
+      if(t < ray.tmin || t > ray.tmax) return false;
+
+      normal = normalize(d2 * (oa + t * ray.d) - ba * y);
+      dist = t;
+      return true;
     }
     
     // caps
     float h1 = m3 * m3 - m5 + ra * ra;
     float h2 = m6 * m6 - m7 + rb * rb;
-    if (max(h1, h2) < 0.0)
-      return vec4f{-1.0f, -1.0f, -1.0f, -1.0f};
+    
+    if (max(h1, h2) < 0.0) return false;
 
     vec4f r = vec4f{1e20f, 1e20f, 1e20f, 1e20f};
     if (h1 > 0.0f)
@@ -1010,7 +1011,6 @@ namespace yocto
       vec3f normal = normalize((ray_point(ray, t) - pa)/ ra);
       r = {t, normal.x, normal.y, normal.z};
     }
-    float t2 = 0;
     if (h2 > 0.0f)
     {
       t = -m6 - sqrt(h2);
@@ -1020,7 +1020,11 @@ namespace yocto
         r = vec4f{t, normal.x, normal.y, normal.z};
       }
     }
-    return r;
+    if(r.x < ray.tmin || r.x > ray.tmax) return false;
+
+    dist = r.x;
+    normal = {r.y, r.z, r.w};
+    return true;
   }
 
   inline bool intersect_rounded_cone(const ray3f &ray,
@@ -1028,17 +1032,21 @@ namespace yocto
                                      float ra, float rb,
                                      vec2f& uv, float& dist, vec3f& position, vec3f& normal)
   {
-    vec4f isec_vals = _intersect_rounded_cone(ray, pa, pb, ra, rb);
-    if (isec_vals.x == isec_vals.y && isec_vals.z == isec_vals.w && isec_vals.y == isec_vals.z && isec_vals.x == -1.0)
+    // If no hit return false
+    float tmp_t;
+    if (!_intersect_rounded_cone(ray, pa, pb, ra, rb, tmp_t, normal))
       return false;
-    if(isec_vals.x < ray.tmin || isec_vals.x > ray.tmax) return false;
-    dist = isec_vals.x;
-    normal = vec3f{isec_vals.y, isec_vals.z, isec_vals.w};
+
+    // Retrieve dist (aka t) and normals
+    dist = tmp_t;
+    // Calc hit point
     position = ray_point(ray, dist);
+
     vec3f w = normalize(pb - pa);
-    vec3f u = normalize(cross(w, vec3f{ 0, 0, -1 }));
+    vec3f u = normalize(cross(w, vec3f{ 0, 0, 1 }));
     vec3f v = normalize(cross(u, w));
-    vec3f q = (position - pa) * mat3f{ u, v, w };
+    vec3f q = (normal) * transpose(mat3f{ w, v, u });
+    // UV Coords
     uv = vec2f{ atan2(q.y, q.x), q.z };
     return true;
   }

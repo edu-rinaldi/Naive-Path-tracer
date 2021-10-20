@@ -45,8 +45,14 @@ namespace yocto
   // the lens coordinates luv.
   static ray3f eval_camera(const camera_data &camera, const vec2f &uv)
   {
-    // YOUR CODE GOES HERE
-    return camera_ray(camera.frame, camera.lens, camera.aspect, camera.film, uv);
+    // Obtain film based on aspect ratio
+    vec2f film = camera.aspect >= 1 ? vec2f{camera.film, camera.film / camera.aspect}
+                            : vec2f{camera.film * camera.aspect, camera.film};
+    vec3f q = vec3f{film.x * (0.5f - uv.x), film.y * (uv.y - 0.5f), camera.lens};
+    vec3f e = vec3f{0}; 
+    vec3f d = normalize(-q - e);
+    return ray3f{transform_point(camera.frame, e),
+      transform_direction(camera.frame, d)};
   }
 
 } // namespace yocto
@@ -71,7 +77,9 @@ namespace yocto
     // Retrieve instance, shape, pos, normals
     const instance_data &instance = scene.instances[isec.instance];
     const shape_data &shape = scene.shapes[instance.shape];
+    
     vec3f position, normal;
+    // Using sphere for intersecting points or using cones for intersecting lines
     if ((!shape.points.empty() && params.point_as_sphere) || (!shape.lines.empty() && params.line_as_cone))
     {
       position = transform_point(instance.frame, isec.position);
@@ -79,10 +87,8 @@ namespace yocto
     }
     else
     {
-      position = transform_point(
-          instance.frame, eval_position(shape, isec.element, isec.uv));
-      normal = transform_direction(
-          instance.frame, eval_normal(shape, isec.element, isec.uv));
+      position = transform_point(instance.frame, eval_position(shape, isec.element, isec.uv));
+      normal = transform_direction(instance.frame, eval_normal(shape, isec.element, isec.uv));
     }
 
     // Outgoing direction
@@ -111,7 +117,9 @@ namespace yocto
     // Opacity
     float opacity = material.opacity * color_tex.w;
     if (rand1f(rng) < 1 - opacity)
-      return shade_raytrace(scene, bvh, ray3f{position, ray.d}, bounce, rng, params);
+    {
+      return shade_raytrace(scene, bvh, ray3f{position, ray.d}, bounce + 1, rng, params);
+    }
 
     vec3f radiance = emission;
     if (bounce >= params.bounces)
@@ -146,7 +154,7 @@ namespace yocto
       }
 
       // Choose wether to reflect or absorb
-      if (rand1f(rng) < fresnel_schlick(vec3f{0.04, 0.04, 0.04}, normalRefl, outgoing).x)
+      if (rand1f(rng) < fresnel_schlick(vec3f{0.04f}, normalRefl, outgoing).x)
       {
         vec3f incoming = reflect(outgoing, normalRefl);
         radiance += xyz(shade_raytrace(scene, bvh, ray3f{position, incoming}, bounce + 1, rng, params));
@@ -161,7 +169,7 @@ namespace yocto
     else if (material.type == material_type::transparent)
     {
       // Reflect or absorb?
-      if (rand1f(rng) < fresnel_schlick(vec3f{0.04f, 0.04f, 0.04f}, normal, outgoing).x)
+      if (rand1f(rng) < fresnel_schlick(vec3f{0.04f}, normal, outgoing).x)
       {
         // reflect
         vec3f incoming = reflect(outgoing, normal);
@@ -193,13 +201,14 @@ namespace yocto
                               const ray3f &ray, int bounce, rng_state &rng,
                               const raytrace_params &params)
   {
-    const auto &intersection = intersect_bvh(bvh, scene, ray, false, true, params.line_as_cone, params.point_as_sphere);
+    const bvh_intersection &intersection = intersect_bvh(bvh, scene, ray, false, true, params.line_as_cone, params.point_as_sphere);
     if (!intersection.hit)
       return zero4f; // No intersection
 
     // Retrieve instance, shape, normal and material info
     const instance_data &instance = scene.instances[intersection.instance];
-    const auto &shape = scene.shapes[instance.shape];
+    const shape_data &shape = scene.shapes[instance.shape];
+    
     vec3f normal;
     if ((!shape.points.empty() && params.point_as_sphere) || (!shape.lines.empty() && params.line_as_cone)) 
       normal = transform_direction(instance.frame, intersection.normal);
@@ -208,8 +217,8 @@ namespace yocto
       
     if (!shape.lines.empty()) normal = orthonormalize(-ray.d, normal);
     
-    const auto& material = scene.materials[instance.material];
-    auto texcoords = eval_texcoord(shape, intersection.element, intersection.uv);
+    const material_data& material = scene.materials[instance.material];
+    vec2f texcoords = eval_texcoord(shape, intersection.element, intersection.uv);
     texcoords = {fmod(texcoords.x, 1.f), fmod(texcoords.y, 1.f)};
 
     vec4f color = xyzw(material.color, 1) *
@@ -221,13 +230,14 @@ namespace yocto
                             const ray3f &ray, int bounce, rng_state &rng,
                             const raytrace_params &params)
   {
-    const auto &intersection = intersect_bvh(bvh, scene, ray, false, true, params.line_as_cone, params.point_as_sphere);
+    const bvh_intersection &intersection = intersect_bvh(bvh, scene, ray, false, true, params.line_as_cone, params.point_as_sphere);
     if (!intersection.hit)
       return zero4f; // No intersection
 
     // Retrieve instance, shape, normal
     const instance_data &instance = scene.instances[intersection.instance];
-    const auto &shape = scene.shapes[instance.shape];
+    const shape_data &shape = scene.shapes[instance.shape];
+    
     vec3f normal;
     if ((!shape.points.empty() && params.point_as_sphere) || (!shape.lines.empty() && params.line_as_cone))
       normal = transform_direction(instance.frame, intersection.normal);
@@ -236,6 +246,7 @@ namespace yocto
 
     if (!shape.lines.empty() && !params.line_as_cone)
       normal = orthonormalize(-ray.d, normal);
+    
     const vec3f color = normal * 0.5f + 0.5f;
     return {color.x, color.y, color.z, 1.f};
   }
@@ -250,9 +261,8 @@ namespace yocto
 
     // Retrieve instance, shape and texcoords
     const instance_data &instance = scene.instances[intersection.instance];
-    const auto &shape = scene.shapes[instance.shape];
-    auto texcoords = eval_texcoord(
-        shape, intersection.element, intersection.uv);
+    const shape_data &shape = scene.shapes[instance.shape];
+    vec2f texcoords = eval_texcoord(shape, intersection.element, intersection.uv);
     return {fmod(texcoords.x, 1.f), fmod(texcoords.y, 1.f), 0.f, 1.f};
   }
 
@@ -260,7 +270,7 @@ namespace yocto
                            const ray3f &ray, int bounce, rng_state &rng,
                            const raytrace_params &params)
   {
-    const auto &intersection = intersect_bvh(bvh, scene, ray, false, true, params.line_as_cone, params.point_as_sphere);
+    const bvh_intersection &intersection = intersect_bvh(bvh, scene, ray, false, true, params.line_as_cone, params.point_as_sphere);
     if (!intersection.hit)
       return zero4f;
     const instance_data &instance = scene.instances[intersection.instance];
@@ -329,6 +339,20 @@ namespace yocto
     }
     return state;
   }
+  
+  // Trace only one pixel (1 sample)
+  void trace_sample(raytrace_state &state, const scene_data& scene, const bvh_scene& bvh, const raytrace_params& params, 
+                    const camera_data& scene_camera, raytrace_shader_func shader_func, int idx)
+  {
+    int x = idx % state.width;
+    int y = (idx / state.width) % state.height;
+    vec2f randOffset = rand2f(state.rngs[idx]);
+    float u = (static_cast<float>(x) + randOffset.x) / static_cast<float>(state.width);
+    float v = (static_cast<float>(y) + randOffset.y) / static_cast<float>(state.height);
+    vec2f uv = {u, v};
+    ray3f ray = eval_camera(scene_camera, uv);
+    state.image[idx] += shader_func(scene, bvh, ray, 0, state.rngs[idx], params);; 
+  }
 
   // Progressively compute an image by calling trace_samples multiple times.
   void raytrace_samples(raytrace_state &state, const scene_data &scene,
@@ -336,43 +360,19 @@ namespace yocto
   {
     if (state.samples >= params.samples)
       return;
-    // YOUR CODE GOES HERE
+
     const auto &shaderFunc = get_shader(params);
     const camera_data &sceneCamera = scene.cameras[params.camera];
-    // If it's parallel
+    // If it's not parallel
     if (params.noparallel)
     {
-      for (int y = 0; y < state.height; ++y)
-      {
-        for (int x = 0; x < state.width; ++x)
-        {
-          int idx = y * state.width + x;
-          vec2f randOffset = rand2f(state.rngs[idx]);
-          float u = (static_cast<float>(x) + randOffset.x) / static_cast<float>(state.width);
-          float v = (static_cast<float>(y) + randOffset.y) / static_cast<float>(state.height);
-          vec2f uv = {u, v};
-          ray3f ray = eval_camera(sceneCamera, uv);
-          auto color = shaderFunc(
-              scene, bvh, ray, 0, state.rngs[idx], params);
-          state.image[idx] += color;
-        }
-      }
+      for(int idx = 0; idx < state.image.size(); ++idx) 
+        trace_sample(state, scene, bvh, params, sceneCamera, shaderFunc, idx);
     }
-    else
-    {
-      parallel_for(state.image.size(), [&state, &shaderFunc, &sceneCamera, &params, &scene, &bvh](int idx)
-                   {
-                     int x = idx % state.width;
-                     int y = (idx / state.width) % state.height;
-                     vec2f randOffset = rand2f(state.rngs[idx]);
-                     float u = (static_cast<float>(x) + randOffset.x) / static_cast<float>(state.width);
-                     float v = (static_cast<float>(y) + randOffset.y) / static_cast<float>(state.height);
-                     vec2f uv = {u, v};
-                     ray3f ray = eval_camera(sceneCamera, uv);
-                     auto color = shaderFunc(
-                         scene, bvh, ray, 0, state.rngs[idx], params);
-                     state.image[idx] += color; });
-    }
+    else parallel_for(state.image.size(), 
+                      [&state, &shaderFunc, &sceneCamera, &params, &scene, &bvh](int idx) 
+                      {trace_sample(state, scene, bvh, params, sceneCamera, shaderFunc, idx);}
+                      );
     state.samples += 1;
   }
 

@@ -882,6 +882,7 @@ namespace yocto
         for (auto idx = node.start; idx < node.start + node.num; idx++)
         {
           auto &p = shape.points[bvh.primitives[idx]];
+          // Choose point intersection implementation (points or spheres)
           bool  intersect_check = use_sphere_impl
                             ? intersect_sphere(ray, shape.positions[p],
                                  shape.radius[p], uv, distance, position,
@@ -901,6 +902,7 @@ namespace yocto
         for (auto idx = node.start; idx < node.start + node.num; idx++)
         {
           auto &l = shape.lines[bvh.primitives[idx]];
+          // Choose line intersection implementation (lines or cones)
           bool  intersect_check = use_cone_impl ? 
               intersect_rounded_cone(ray, shape.positions[l.x],
                         shape.positions[l.y], shape.radius[l.x],

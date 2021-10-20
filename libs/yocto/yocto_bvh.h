@@ -111,8 +111,8 @@ struct bvh_intersection {
   int   instance = -1;
   int   element  = -1;
   vec2f uv       = {0, 0};
-  vec3f normal = { 0,0,0 };
-  vec3f position = { 0,0,0 };
+  vec3f normal = { 0,0,0 };     // normal on the hit point
+  vec3f position = { 0,0,0 };   // hit point
   float distance = 0;
   bool  hit      = false;
 };
