@@ -1037,14 +1037,17 @@ namespace yocto
       return false;
     // Calc hit point
     position = ray_point(ray, dist);
+    vec3f u = ray.d;
+    vec3f v = pb - pa;
+    vec3f w = ray.o - pa;
 
-    auto  a   = dot(ray.d, ray.d);
-    auto  b   = dot(ray.d, pb-pa);
-    auto  c   = dot(pb - pa, pb - pa);
-    auto  d   = dot(ray.d, ray.o - pa);
-    auto  e   = dot(pb - pa, ray.o - pa);
-    auto  det = a * c - b * b;
-    auto  s   = clamp((a * e - b * d) / det, 0.f, 1.f);
+    float  a   = dot(u, u);
+    float  b   = dot(u, v);
+    float  c   = dot(v, v);
+    float  d   = dot(u, w);
+    float  e   = dot(v, w);
+    float  det = a * c - b * b;
+    float  s   = clamp((a * e - b * d) / det, 0.f, 1.f);
     // UV Coords
     uv = vec2f{s, acos(clamp(normal.z, -1.0f, 1.0f)) / pif};
     return true;
