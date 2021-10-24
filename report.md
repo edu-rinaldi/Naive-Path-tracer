@@ -10,7 +10,7 @@ The idea is to:
 My solution is based on the intersection algorithms provided [here](https://iquilezles.org/www/articles/intersectors/intersectors.htm) as *"Sphere intersection"* and *"Rounded cone intersection"*.
 
 ## How the code is setup
-For both intersection algorithms I decided to calculate position, normal and uvs directly in the intersection code (no particular reason, it's just easier) and I put them in a modified version of `bvh_intersection` struct:
+For both intersection algorithms I decided to calculate position, normal and uv directly in the intersection code (no particular reason, it's just easier) and I put them in a modified version of `bvh_intersection` struct:
 
 
 ```cpp
@@ -39,7 +39,7 @@ struct raytrace_params
 ```
 
 These two extra parameters so are used in:
-  - `shade_raytrace()`/`normal()`/`eyelight()`: for deciding whether to retrieve position and normals from `eval_position` and `eval_normal` or from `bvh_intersection` struct
+  - `shade_raytrace()`/`normal()`/`eyelight()`: for deciding whether to retrieve positions and normals from `eval_position` and `eval_normal` or from `bvh_intersection` struct
   - `intersect_bvh()`: for deciding whether to use `intersect_point()`/`line()` or `intersect_sphere()`/`_rounded_cone()` (i.e. new intersection methods)
 
 **Note:** These two extra parameters can also be set on the *interactive app*
@@ -90,6 +90,5 @@ For launching an interactive test on a test scene, just run:
 ```bash
 ./bin/yraytrace --scene tests/shapes4/shapes4.json --samples 256 --bounces  8 --resolution 720 --interactive --linecone --pointsphere
 ```
-
 
 --- Eduardo Rinaldi 1797800 ---

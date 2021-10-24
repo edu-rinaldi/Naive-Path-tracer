@@ -12,6 +12,6 @@ tests1/
 .vs
 testsr/
 scripts/sync_yocto.sh
-.DS_Store
+**/.DS_Store
 .vscode
 CMakePresets.json
